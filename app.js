@@ -553,10 +553,13 @@ document.addEventListener('keydown', e => {
 /* ---------- boot ---------- */
 setTab('spin');
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  /* Reload onto a new build only when one replaces an older one. On the very
+     first visit the worker claims the page too, and that must not reload. */
+  const hadWorker = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').then(reg => {
     reg.addEventListener('updatefound', () => {
       const nw = reg.installing;
-      nw?.addEventListener('statechange', () => { if (nw.state === 'activated' && navigator.serviceWorker.controller) location.reload(); });
+      nw?.addEventListener('statechange', () => { if (nw.state === 'activated' && hadWorker) location.reload(); });
     });
   }).catch(() => {});
 }
