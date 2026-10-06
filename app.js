@@ -556,6 +556,23 @@ document.addEventListener('keydown', e => {
 
 /* ---------- boot ---------- */
 setTab('spin');
+/* Install as a real app. Chrome fires beforeinstallprompt only when the app
+   qualifies for a proper install (own icon, no browser badge); prompting from
+   here opens Chrome's real install dialog instead of a home-screen shortcut. */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); installEvt = e;
+  if (matchMedia('(display-mode: standalone)').matches) return;
+  try { if (localStorage.getItem('craving.noInstall') === String(new Date().toDateString())) return; } catch {}
+  if (document.querySelector('.install-bar')) return;
+  const bar = document.createElement('div'); bar.className = 'install-bar';
+  bar.innerHTML = '<img src="icon-192.png" alt=""><div class="txt"><strong>Install Craving</strong><br>Opens like its own app, works offline.</div><button class="go">Install</button><button class="no" aria-label="Not now">✕</button>';
+  bar.querySelector('.go').onclick = async () => { bar.remove(); installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; };
+  bar.querySelector('.no').onclick = () => { bar.remove(); try { localStorage.setItem('craving.noInstall', new Date().toDateString()); } catch {} };
+  document.body.appendChild(bar);
+});
+addEventListener('appinstalled', () => { document.querySelector('.install-bar')?.remove(); toast('Installed — open Craving from your home screen'); });
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   /* Reload onto a new build only when one replaces an older one. On the very
      first visit the worker claims the page too, and that must not reload. */
