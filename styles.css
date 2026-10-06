@@ -49,8 +49,8 @@ h2 { font-size: 18px; margin: 18px 0 8px; }
 
 /* Spin */
 .spin-wrap { display: flex; flex-direction: column; align-items: center; }
-.wheel-box { position: relative; width: min(100%, 400px); aspect-ratio: 1; }
-.wheel-box canvas { width: 100%; height: 100%; display: block; }
+.wheel-box { position: relative; width: min(100%, 400px, 52dvh); aspect-ratio: 1; }
+.wheel-box canvas { width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
 .pointer { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 30px solid var(--ink); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); z-index: 2; }
 .pointer.small { border-left-width: 10px; border-right-width: 10px; border-top-width: 18px; top: -4px; }
 .minis { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; width: min(100%, 400px); margin-top: 14px; }

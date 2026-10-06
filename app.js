@@ -172,13 +172,15 @@ function viewSpin() {
   const banner = S.only ? `<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">
       <span>🤔 Spinning between your ${S.only.length} picks</span><button class="btn ghost small" id="clear-only">Use all</button></div>` : '';
   return `<h1>What should we eat?</h1>
-    <p class="sub">Spin, or just shake your phone. Lock a wheel to keep its answer.</p>
+    <p class="sub">Tap the wheel, or shake your phone. Lock a wheel to keep its answer.</p>
     ${banner}
     <div class="spin-wrap ${S.res ? 'wide' : ''}">
       <div style="width:100%;display:flex;flex-direction:column;align-items:center">
         ${placesOk ? `<div class="seg"><button data-mode="cuisine" class="${S.mode === 'cuisine' ? 'on' : ''}">🍽️ Cuisines</button>
           <button data-mode="places" class="${S.mode === 'places' ? 'on' : ''}">📍 My places</button></div>` : ''}
         <div class="wheel-box"><div class="pointer"></div><canvas id="w-main" aria-label="Main wheel"></canvas></div>
+        <button class="btn spin-btn" id="spin">🎰 Spin</button>
+        <p class="hint" id="shake-hint">${shakeHint()}</p>
         <div class="minis">
           <div class="card mini"><div class="lbl">Price <button class="lock ${S.lock.price ? 'on' : ''}" data-lock="price">${S.lock.price ? '🔒 ' + price(S.lock.price).label : '🔓'}</button></div>
             <div class="wheel-box"><div class="pointer small"></div><canvas id="w-price"></canvas></div>
@@ -187,8 +189,6 @@ function viewSpin() {
             <div class="wheel-box"><div class="pointer small"></div><canvas id="w-style"></canvas></div>
             <div class="val" id="v-style">${S.res ? esc(style(S.res.style).emoji + ' ' + style(S.res.style).label) : ''}</div></div>
         </div>
-        <button class="btn spin-btn" id="spin">🎰 Spin</button>
-        <p class="hint" id="shake-hint">${shakeHint()}</p>
       </div>
       <div id="result" style="width:100%;display:flex;justify-content:center">${S.res ? resultCard() : ''}</div>
     </div>`;
@@ -201,6 +201,8 @@ function bindSpin() {
   if (S.res) { W.price.show(PRICES.findIndex(p => p.lvl === S.res.price)); const si = styleItems().findIndex(s => s.id === S.res.style); if (si >= 0) W.style.show(si);
     const mi = W.main.items.findIndex(it => it.id === (S.res.place || S.res.cuisine)); if (mi >= 0) W.main.show(mi); }
   $('#spin').onclick = spinAll;
+  /* On the folded Fold the button sits below the wheel; tapping a wheel spins too. */
+  document.querySelectorAll('.wheel-box canvas').forEach(c => c.onclick = spinAll);
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { S.mode = b.dataset.mode; S.res = null; render(); });
   document.querySelectorAll('[data-lock]').forEach(b => b.onclick = () => openLock(b.dataset.lock));
   $('#clear-only')?.addEventListener('click', () => { S.only = null; render(); });
@@ -315,20 +317,22 @@ async function enableShake() {
   catch { toast('Could not turn on motion.'); }
   const h = $('#shake-hint'); if (h) h.innerHTML = shakeHint();
 }
-let last = null, hits = [], lastShake = 0;
+/* A shake is three strong movements inside a second. Strength is the size of
+   the acceleration with gravity taken out: a walking bump is ~2–5 m/s², a
+   deliberate shake 12–30. (Comparing back-to-back readings doesn't work — at
+   60 readings a second each step is tiny even mid-shake.) */
+let hits = [], lastShake = 0;
 function onMotion(e) {
-  const a = e.accelerationIncludingGravity; if (!a || a.x == null) return;
+  const a = e.acceleration && e.acceleration.x != null ? e.acceleration : null;
+  const g = e.accelerationIncludingGravity;
+  if (!a && (!g || g.x == null)) return;
   if (!gotMotion) { gotMotion = true; const h = $('#shake-hint'); if (h) h.innerHTML = shakeHint(); }
-  if (last) {
-    const d = Math.abs(a.x - last.x) + Math.abs(a.y - last.y) + Math.abs(a.z - last.z);
-    const now = Date.now();
-    if (d > 28) { hits = hits.filter(t => now - t < 700); hits.push(now); }
-    /* Two hard jolts within 0.7 s = a deliberate shake, not a bump in a pocket. */
-    if (hits.length >= 2 && now - lastShake > 1500 && S.tab === 'spin' && $('#sheet').hidden && !spinning && document.visibilityState === 'visible') {
-      lastShake = now; hits = []; spinAll();
-    }
+  const force = a ? Math.hypot(a.x, a.y, a.z) : Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+  const now = Date.now();
+  if (force > 12 && (!hits.length || now - hits[hits.length - 1] > 90)) { hits = hits.filter(t => now - t < 1000); hits.push(now); }
+  if (hits.length >= 3 && now - lastShake > 1500 && S.tab === 'spin' && $('#sheet').hidden && !spinning && document.visibilityState === 'visible') {
+    lastShake = now; hits = []; spinAll();
   }
-  last = { x: a.x, y: a.y, z: a.z };
 }
 /* Listen from the start everywhere. iOS simply sends nothing until the user
    grants motion access, so the button only shows until the first reading. */
